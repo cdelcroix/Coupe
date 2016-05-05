@@ -3,6 +3,8 @@
 #include <SharpIR.h>
 #include <Servo.h> 
 
+#define TIME_STOP 2000
+#define TIME_FUNNY 91000
 
 unsigned long lastMilli = 0;
 int speedL_req = 80;
@@ -29,6 +31,7 @@ SharpIR sharp(A8, 25, 93, 1080);
 void setup1(){}
 
 int obstaclDetected(){
+  return 0;
   Serial.println("sajdhasjhdjsa");
   int d = sharp.distance();
   if ( d < 15 &&  d > 0){
@@ -71,7 +74,7 @@ void setup() {
   leftMotor.run(FORWARD);
   rightMotor.run(FORWARD);
   funny.attach(10);
-  funny.write(45);
+  funny.write(20);
   begin = millis();
   
   speedL_req = 250;
@@ -81,23 +84,32 @@ void setup() {
 bool finish = false;
 bool quit = false;
 void loop() {
+  //funny.write(20);
+  //return;
   countL = leftEncoder.read();
   countR = rightEncoder.read();
 
   lastMilli = millis();
   if(!quit){
     if(finish){
-      leftMotor.setSpeed(0);
-      rightMotor.setSpeed(0);
-      leftMotor.run(FORWARD);
-      rightMotor.run(FORWARD);
-      delay(10);
-      funny.write(25);
-      delay(1000);
-      funny.write(45);
-      quit = true;
+      if(millis() - begin > TIME_FUNNY){
+        leftMotor.setSpeed(0);
+        rightMotor.setSpeed(0);
+        leftMotor.run(FORWARD);
+        rightMotor.run(FORWARD);
+        delay(10);
+        funny.write(50);
+        //delay(1000);
+        //funny.write(20);
+        quit = true;
+      } else {
+        leftMotor.setSpeed(0);
+        rightMotor.setSpeed(0);
+        leftMotor.run(FORWARD);
+        rightMotor.run(FORWARD);
+      }
     } else {
-      while(millis()-begin < 90000 && obstaclDetected()){}
+      while(millis()-begin < TIME_STOP && obstaclDetected()){}
 
       getMotorData();
       PWML_val= updatePid(PWML_val, speedL_req, speedL_act);
@@ -108,7 +120,7 @@ void loop() {
       leftMotor.run(FORWARD);
       rightMotor.run(FORWARD);
       
-      if(millis()-begin > 90000){
+      if(millis()-begin > TIME_STOP){
         finish = true;
       }
       

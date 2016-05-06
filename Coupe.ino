@@ -1,10 +1,15 @@
+#include <Thread.h>
+#include <ThreadController.h>
 #include <AFMotor.h>
 #include <Encoder.h>
 #include <SharpIR.h>
 #include <Servo.h> 
 
-#define TIME_STOP 2000
+#define TIME_DOORS 91000
 #define TIME_FUNNY 91000
+
+ThreadController controll = ThreadController();
+Thread PIDThread = Thread();
 
 unsigned long lastMilli = 0;
 int speedL_req = 80;
@@ -28,13 +33,11 @@ Encoder leftEncoder(20,21);
 SharpIR sharp(A8, 25, 93, 1080);
 
 
-void setup1(){}
-
 int obstaclDetected(){
   return 0;
-  Serial.println("sajdhasjhdjsa");
   int d = sharp.distance();
-  if ( d < 15 &&  d > 0){
+  Serial.println(d);
+  if ( d < 25 &&  d > 0){
     leftMotor.setSpeed(0);
     rightMotor.setSpeed(0);
     leftMotor.run(FORWARD);
@@ -47,12 +50,16 @@ int obstaclDetected(){
 unsigned long begin;
 
 
-void getMotorData()  {                                       // calculate speed
+void getMotorData(unsigned long last)  {                                       // calculate speed
   static long countAntL = 0;                                                    // last count
   static long countAntR = 0;
   //Calculating the speed using encoder count
-  speedL_act = ((countL - countAntL)*(60*(1000/(millis()-lastMilli))))/(30);
-  speedR_act = ((countR - countAntR)*(60*(1000/(millis()-lastMilli))))/(30);  
+  //Serial.println(millis()-last);
+  //speedL_act = ((countL - countAntL)*(60*(1000/(millis()-last))))/(30);
+  //speedR_act = ((countR - countAntR)*(60*(1000/(millis()-last))))/(30);
+  speedL_act = (countL - countAntL)*(255.0/70);
+  speedR_act = (countR - countAntR)*(255.0/70);
+  Serial.println(((countL - countAntL))); 
   countAntL = countL;                                           //setting count value to last count
   countAntR = countR;
 }
@@ -66,6 +73,24 @@ int updatePid(int command, int targetValue, int currentValue)   {      // comput
   return constrain(command + int(pidTerm), 0, 255);
 }
 
+
+void PIDStep(){
+  static unsigned long lastTimeCall = 0;
+  
+  getMotorData(lastTimeCall);
+  PWML_val= updatePid(PWML_val, speedL_req, speedL_act);
+  PWMR_val= updatePid(PWMR_val, speedR_req, speedR_act);
+  Serial.print(speedL_act);
+  Serial.print(" === ");
+  Serial.println(speedR_act);
+
+  leftMotor.setSpeed(PWML_val);
+  rightMotor.setSpeed(PWMR_val);
+  leftMotor.run(FORWARD);
+  rightMotor.run(FORWARD);
+  lastTimeCall = millis();
+}
+
 void setup() {
   Serial.begin(9600);
   // turn on motor
@@ -77,54 +102,48 @@ void setup() {
   funny.write(20);
   begin = millis();
   
-  speedL_req = 250;
-  speedR_req = 250;
+  speedL_req = 100;
+  speedR_req = 100;
+  
+  PIDThread.onRun(PIDStep);
+  PIDThread.setInterval(10);
+  
+  controll.add(&PIDThread);
 }
 
 bool finish = false;
 bool quit = false;
 void loop() {
+  controll.run();
   //funny.write(20);
   //return;
   countL = leftEncoder.read();
-  countR = rightEncoder.read();
+  countR = -rightEncoder.read();
 
   lastMilli = millis();
   if(!quit){
-    if(finish){
-      if(millis() - begin > TIME_FUNNY){
-        leftMotor.setSpeed(0);
-        rightMotor.setSpeed(0);
-        leftMotor.run(FORWARD);
-        rightMotor.run(FORWARD);
-        delay(10);
-        funny.write(50);
-        //delay(1000);
-        //funny.write(20);
-        quit = true;
-      } else {
-        leftMotor.setSpeed(0);
-        rightMotor.setSpeed(0);
-        leftMotor.run(FORWARD);
-        rightMotor.run(FORWARD);
-      }
-    } else {
-      while(millis()-begin < TIME_STOP && obstaclDetected()){}
-
-      getMotorData();
-      PWML_val= updatePid(PWML_val, speedL_req, speedL_act);
-      PWMR_val= updatePid(PWMR_val, speedR_req, speedR_act); 
-      
-      leftMotor.setSpeed(PWML_val);
-      rightMotor.setSpeed(PWMR_val);
+    if(lastMilli - begin > TIME_FUNNY){
+      leftMotor.setSpeed(0);
+      rightMotor.setSpeed(0);
       leftMotor.run(FORWARD);
       rightMotor.run(FORWARD);
-      
-      if(millis()-begin > TIME_STOP){
-        finish = true;
-      }
-      
+      delay(10);
+      funny.write(50);
+      //delay(1000);
+      //funny.write(20);
+      quit = true;
+    } else if (lastMilli -begin > TIME_DOORS) {
+      //TODO
+      leftMotor.setSpeed(0);
+      rightMotor.setSpeed(0);
+      leftMotor.run(FORWARD);
+      rightMotor.run(FORWARD);
+    
+    } else {
+      while(millis()-begin < TIME_DOORS && obstaclDetected()){}
+ 
     }
+    
   }
   
 }

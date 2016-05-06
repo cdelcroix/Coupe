@@ -5,7 +5,7 @@
 #include <SharpIR.h>
 #include <Servo.h> 
 
-#define TIME_DOORS 91000
+#define TIME_DOORS 4000
 #define TIME_FUNNY 91000
 
 ThreadController controll = ThreadController();
@@ -123,10 +123,8 @@ void loop() {
   lastMilli = millis();
   if(!quit){
     if(lastMilli - begin > TIME_FUNNY){
-      leftMotor.setSpeed(0);
-      rightMotor.setSpeed(0);
-      leftMotor.run(FORWARD);
-      rightMotor.run(FORWARD);
+      speedL_req = 0;
+      speedR_req = 0;
       delay(10);
       funny.write(50);
       //delay(1000);
@@ -134,13 +132,13 @@ void loop() {
       quit = true;
     } else if (lastMilli -begin > TIME_DOORS) {
       //TODO
-      leftMotor.setSpeed(0);
-      rightMotor.setSpeed(0);
-      leftMotor.run(FORWARD);
-      rightMotor.run(FORWARD);
+      speedL_req = 0;
+      speedR_req = 0;
     
     } else {
       while(millis()-begin < TIME_DOORS && obstaclDetected()){}
+      speedL_req = 100;
+      speedR_req = 100;
  
     }
     

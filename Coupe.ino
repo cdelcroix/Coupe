@@ -5,12 +5,20 @@
 #include <SharpIR.h>
 #include <Servo.h> 
 
-#define TIME_DOORS 4000
+#define SPEED 40
+#define TIME_BACK 4000
+#define TIME_TURN_RIGHT 8000
+#define TIME_FORWARD 10000
+#define TIME_TURN_LEFT 12000
+#define TIME_FORWARD2 14000
+#define TIME_WAIT 18000
 #define TIME_FUNNY 91000
 
 ThreadController controll = ThreadController();
 Thread PIDThread = Thread();
 
+bool forwardL;
+bool forwardR;
 unsigned long lastMilli = 0;
 int speedL_req = 80;
 int speedL_act = 0; //actual value
@@ -22,8 +30,8 @@ volatile long countL = 0; // revolution counter
 volatile int count1L = 0; // revolution counter for position
 volatile long countR = 0; // revolution counter
 volatile int count1R = 0; // revolution counter for position
-float Kp = 0.4;          //setting Kp  
-float Kd = 1;            //setting Kd
+float Kp = 0.2;          //setting Kp  
+float Kd = 0.1;            //setting Kd
 
 Servo funny;
 AF_DCMotor leftMotor(3);
@@ -86,27 +94,30 @@ void PIDStep(){
 
   leftMotor.setSpeed(PWML_val);
   rightMotor.setSpeed(PWMR_val);
-  leftMotor.run(FORWARD);
-  rightMotor.run(FORWARD);
+  leftMotor.run(forwardL ? FORWARD : BACKWARD);
+  rightMotor.run(forwardR ? FORWARD : BACKWARD);
   lastTimeCall = millis();
 }
 
 void setup() {
   Serial.begin(9600);
   // turn on motor
+  
+  speedL_req = 100;
+  speedR_req = 100;
+  forwardL = true;
+  forwardR = true;
+  
   leftMotor.setSpeed(0);
   rightMotor.setSpeed(0);
-  leftMotor.run(FORWARD);
-  rightMotor.run(FORWARD);
+  leftMotor.run(forwardL ? FORWARD : BACKWARD);
+  rightMotor.run(forwardR ? FORWARD : BACKWARD);
   funny.attach(10);
   funny.write(20);
   begin = millis();
   
-  speedL_req = 100;
-  speedR_req = 100;
-  
   PIDThread.onRun(PIDStep);
-  PIDThread.setInterval(10);
+  PIDThread.setInterval(1);
   
   controll.add(&PIDThread);
 }
@@ -114,11 +125,18 @@ void setup() {
 bool finish = false;
 bool quit = false;
 void loop() {
-  controll.run();
+  //controll.run();
   //funny.write(20);
   //return;
+  
   countL = leftEncoder.read();
   countR = -rightEncoder.read();
+  
+  Serial.print(countL);
+  Serial.print(" === ");
+  Serial.println(countR);
+  
+  /*PIDStep();
 
   lastMilli = millis();
   if(!quit){
@@ -130,18 +148,57 @@ void loop() {
       //delay(1000);
       //funny.write(20);
       quit = true;
-    } else if (lastMilli -begin > TIME_DOORS) {
+    } else if (lastMilli -begin > TIME_WAIT) {
       //TODO
       speedL_req = 0;
       speedR_req = 0;
+      forwardL = true;
+      forwardR = true;
+    
+    } else if (lastMilli -begin > TIME_FORWARD2) {
+      //TODO
+      speedL_req = SPEED;
+      speedR_req = SPEED;
+      forwardL = true;
+      forwardR = true;
+    
+    } else if (lastMilli -begin > TIME_TURN_LEFT) {
+      //TODO
+      speedL_req = 0;
+      speedR_req = SPEED;
+      forwardL = true;
+      forwardR = true;
+    
+    } else if (lastMilli -begin > TIME_FORWARD) {
+      //TODO
+      speedL_req = SPEED;
+      speedR_req = SPEED;
+      forwardL = true;
+      forwardR = true;
+    
+    } else if (lastMilli -begin > TIME_TURN_RIGHT) {
+      //TODO
+      speedL_req = SPEED;
+      speedR_req = 0;
+      forwardL = true;
+      forwardR = true;
+    
+    } else if (lastMilli -begin > TIME_BACK) {
+      //TODO
+      speedL_req = SPEED;
+      speedR_req = SPEED;
+      forwardL = false;
+      forwardR = false;
     
     } else {
-      while(millis()-begin < TIME_DOORS && obstaclDetected()){}
-      speedL_req = 100;
-      speedR_req = 100;
+      //while(millis()-begin < TIME_BACK && obstaclDetected()){}
+      speedL_req = SPEED;
+      speedR_req = SPEED;
+      forwardL = true;
+      forwardR = true;
  
     }
     
-  }
+  }*/
   
 }
